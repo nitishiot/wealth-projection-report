@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+  WEALTH PROJECTION REPORT — TEMPLATE
+  Copy this file and edit only the DATA BLOCK marked below (FUNDS, default
+  scenario bands in the inputs, MACRO, and the historical-data <tbody> rows).
+  Everything else recalculates automatically. Currency is always INR (₹).
+  Chart.js is loaded from CDN. Keep it a single self-contained file.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wealth Projection Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#0f1720;--card:#17212b;--card2:#1e2b38;--line:#2b3a49;--txt:#e8eef4;--muted:#9fb0c0;--accent:#3ea6ff;--gold:#f5b301;--cons:#e06c75;--base:#3ea6ff;--opt:#4caf82;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--bg);color:var(--txt);line-height:1.5}
+  .wrap{max-width:1160px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:26px;margin:0 0 4px} h2{font-size:20px;margin:34px 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  h3{font-size:16px;margin:22px 0 8px;color:var(--accent)} .sub{color:var(--muted);font-size:14px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+  .grid{display:grid;gap:16px}.kpis{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .kpi{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .kpi .val{font-size:22px;font-weight:700;margin-top:4px}
+  .kpi .val.opt{color:var(--opt)}.kpi .val.base{color:var(--base)}.kpi .val.cons{color:var(--cons)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+  th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  tbody tr:hover{background:#1c2836}.cons{color:var(--cons)}.base{color:var(--base)}.opt{color:var(--opt)}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;align-items:end}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input[type=number]{width:100%;background:#0d141c;border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:8px 10px;font-size:14px}
+  .seg{display:inline-flex;background:#0d141c;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;color:var(--muted);border:0;padding:8px 16px;cursor:pointer;font-size:14px}
+  .seg button.on{background:var(--accent);color:#04121f;font-weight:700}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+  .note{font-size:13px;color:var(--muted)}
+  .disc{background:#241d0e;border:1px solid #5c4a12;border-radius:10px;padding:14px 18px;font-size:13px;color:#f2dfa5}
+  .chartbox{position:relative;height:340px}
+  ul.tight{margin:6px 0 0;padding-left:20px}ul.tight li{margin:4px 0;font-size:14px}
+  a{color:var(--accent)}.foot{color:var(--muted);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:820px){.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Wealth Projection Report</h1>
+  <!-- EDIT: subtitle — list the funds, contribution, horizon, date -->
+  <div class="sub">[Portfolio name] · ₹[amount] per fund per year · Horizons 10/15/20 yr (slider 5–40) · All figures in ₹ · Editable advisory model · Data as of [month year].</div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Assumptions — edit and the whole model recalculates</h3>
+    <div class="controls">
+      <div><label>Annual amount per fund (₹)</label><input id="amt" type="number" value="50000" step="5000"></div>
+      <div><label>Step-up rate (% / yr)</label><input id="step" type="number" value="10" step="1"></div>
+      <div><label>Contribution mode</label>
+        <div class="seg" id="modeSeg"><button data-mode="flat" class="on">Flat</button><button data-mode="stepup">Step-up</button></div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:14px">Long-run CAGR bands by category (%). Deliberately below trailing history. Edit freely.</div>
+    <!-- EDIT: one row of 3 inputs per category present in FUNDS. data-cat MUST match the cat used in FUNDS. -->
+    <div class="controls" style="margin-top:10px" id="cagrControls">
+      <div><label>Small Cap — Conservative</label><input class="cagr" data-cat="Small" data-s="c" type="number" value="10" step="0.5"></div>
+      <div><label>Small Cap — Base</label><input class="cagr" data-cat="Small" data-s="b" type="number" value="13" step="0.5"></div>
+      <div><label>Small Cap — Optimistic</label><input class="cagr" data-cat="Small" data-s="o" type="number" value="16" step="0.5"></div>
+      <div><label>Mid Cap — Conservative</label><input class="cagr" data-cat="Mid" data-s="c" type="number" value="9.5" step="0.5"></div>
+      <div><label>Mid Cap — Base</label><input class="cagr" data-cat="Mid" data-s="b" type="number" value="12.5" step="0.5"></div>
+      <div><label>Mid Cap — Optimistic</label><input class="cagr" data-cat="Mid" data-s="o" type="number" value="15" step="0.5"></div>
+      <div><label>Large & Mid — Conservative</label><input class="cagr" data-cat="L&M" data-s="c" type="number" value="9" step="0.5"></div>
+      <div><label>Large & Mid — Base</label><input class="cagr" data-cat="L&M" data-s="b" type="number" value="11.5" step="0.5"></div>
+      <div><label>Large & Mid — Optimistic</label><input class="cagr" data-cat="L&M" data-s="o" type="number" value="13.5" step="0.5"></div>
+      <div><label>Flexicap — Conservative</label><input class="cagr" data-cat="Flexi" data-s="c" type="number" value="10" step="0.5"></div>
+      <div><label>Flexicap — Base</label><input class="cagr" data-cat="Flexi" data-s="b" type="number" value="12.5" step="0.5"></div>
+      <div><label>Flexicap — Optimistic</label><input class="cagr" data-cat="Flexi" data-s="o" type="number" value="15" step="0.5"></div>
+    </div>
+    <div class="note" style="margin-top:10px">Convention: contributions at the start of each year (annuity-due); annual compounding.</div>
+  </div>
+
+  <h2>Portfolio outcome <span class="pill" id="modeLabel">Flat contribution</span></h2>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+      <label style="margin:0">Investment horizon — drag to set any year (5–40)</label>
+      <div style="font-size:20px;font-weight:700;color:var(--gold)"><span id="yrVal">20</span> years</div>
+    </div>
+    <input id="yrRange" type="range" min="5" max="40" step="1" value="20" style="width:100%;margin-top:10px;accent-color:var(--gold)">
+  </div>
+  <div class="grid kpis" id="kpiRow"></div>
+  <div class="note" style="margin-top:6px">"Return generated" = effective annualised return (money-weighted / XIRR) the whole portfolio earns per scenario.</div>
+
+  <div class="split" style="margin-top:18px">
+    <div class="card"><h3 style="margin-top:0">Portfolio value growth</h3><div class="chartbox"><canvas id="growthChart"></canvas></div></div>
+    <div class="card"><h3 style="margin-top:0">Scenario range at each horizon</h3><div class="chartbox"><canvas id="scenChart"></canvas></div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Portfolio totals — all funds combined</h3>
+    <table id="portTable"><thead><tr><th>Horizon</th><th>Total invested</th><th class="cons">Conservative</th><th class="base">Base</th><th class="opt">Optimistic</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <h2>Fund-by-fund breakdown</h2>
+  <div id="fundTables"></div>
+
+  <h2>Macro-adjusted scenario</h2>
+  <div class="card note" style="margin-bottom:14px">
+    <!-- EDIT: fill with researched macro numbers (GDP, inflation, repo, index valuations) -->
+    Nominal-GDP anchor ≈ real GDP + inflation. Adjust bands for current valuations (rich small/mid → de-rating drag, front-loaded, softened by SIP).
+  </div>
+  <div class="grid kpis" id="macroKpi"></div>
+  <div class="split" style="margin-top:16px">
+    <div class="card"><h3 style="margin-top:0">Model base vs Macro-adjusted</h3><div class="chartbox"><canvas id="macroChart"></canvas></div></div>
+    <div class="card"><h3 style="margin-top:0">Corpus at each horizon</h3>
+      <table id="macroTable"><thead><tr><th>Horizon</th><th>Model base</th><th>Macro cons.</th><th>Macro base</th><th>Macro opt.</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <h2>Historical data used</h2>
+  <div class="card">
+    <table><thead><tr><th>Fund</th><th>Category</th><th>3-yr CAGR</th><th>5-yr CAGR</th><th>Since inception</th><th>Notes</th></tr></thead>
+      <tbody>
+        <!-- EDIT: one row per fund with researched, cited figures -->
+        <tr><td>[Fund name]</td><td>[cat]</td><td>[x%]</td><td>[x%]</td><td>[x%]</td><td>[manager, AUM, red flags]</td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:8px">Trailing figures reflect recent conditions and are not sustainable as 20-year assumptions.</div>
+  </div>
+
+  <div class="disc" style="margin-top:18px">
+    <strong>Advisory disclaimer.</strong> Mutual fund investments are subject to market risks. Past performance does not guarantee future returns (SEBI-mandated). These projections are illustrative estimates based on assumed CAGRs, not forecasts or guarantees; actual returns will vary and can be negative in any period. This is information only, not personalised investment, legal, or tax advice — consult a SEBI-registered investment adviser before acting.
+  </div>
+  <!-- EDIT: sources -->
+  <div class="foot">Sources: [cite the fund/data pages used]. Calculations independently verified. Model is fully editable.</div>
+</div>
+
+<script>
+/* ===================== DATA BLOCK — EDIT THIS ONLY ===================== */
+/* One entry per holding. cat must match a data-cat used in the CAGR inputs
+   above (Small, Mid, L&M, Flexi, Large, Index — add inputs+MACRO for any new cat).
+   hist = trailing 5-yr CAGR % (for display on the per-fund card). */
+const FUNDS=[
+ {name:"Example Small Cap", cat:"Small", hist:21.5},
+ {name:"Example Mid Cap",   cat:"Mid",   hist:20.9},
+ {name:"Example Flexicap",  cat:"Flexi", hist:15.1},
+];
+
+/* Macro-adjusted bands (decimals). Include EVERY cat used in FUNDS. */
+const MACRO={Small:{c:.085,b:.115,o:.14}, Mid:{c:.085,b:.115,o:.135}, "L&M":{c:.08,b:.11,o:.13}, Flexi:{c:.085,b:.11,o:.13}, Large:{c:.08,b:.105,o:.125}, Index:{c:.08,b:.105,o:.125}};
+/* =================== END DATA BLOCK — leave rest as is ================= */
+
+const HORIZONS=[10,15,20]; let MODE="flat";
+const inr=x=>"₹"+Math.round(x).toLocaleString("en-IN");
+const inrC=x=>{ if(x>=1e7)return "₹"+(x/1e7).toFixed(2)+" Cr"; if(x>=1e5)return "₹"+(x/1e5).toFixed(2)+" L"; return "₹"+Math.round(x).toLocaleString("en-IN"); };
+function getCagrs(){const c={};document.querySelectorAll(".cagr").forEach(el=>{const cat=el.dataset.cat,s=el.dataset.s;c[cat]=c[cat]||{};c[cat][s]=parseFloat(el.value)/100;});return c;}
+function amt(){return parseFloat(document.getElementById("amt").value)||0;}
+function stepR(){return (parseFloat(document.getElementById("step").value)||0)/100;}
+function selYear(){return parseInt(document.getElementById("yrRange").value)||20;}
+function fvFlat(C,r,n){let s=0;for(let i=1;i<=n;i++)s+=C*Math.pow(1+r,n-i+1);return s;}
+function fvStep(C,r,n,g){let s=0;for(let t=1;t<=n;t++)s+=C*Math.pow(1+g,t-1)*Math.pow(1+r,n-t+1);return s;}
+function fv(C,r,n){return MODE==="flat"?fvFlat(C,r,n):fvStep(C,r,n,stepR());}
+function invested(C,n){if(MODE==="flat")return C*n;let s=0,g=stepR();for(let t=0;t<n;t++)s+=C*Math.pow(1+g,t);return s;}
+function portTotals(n,key,cagrs){let t=0;FUNDS.forEach(f=>t+=fv(amt(),cagrs[f.cat][key],n));return t;}
+function portInvested(n){return FUNDS.length*invested(amt(),n);}
+function macroTotals(n,key){let t=0;FUNDS.forEach(f=>t+=fv(amt(),MACRO[f.cat][key],n));return t;}
+function effCAGR(corpus,n){const C=amt()*FUNDS.length,g=stepR();const cf=[];for(let t=1;t<=n;t++)cf.push(MODE==="flat"?C:C*Math.pow(1+g,t-1));const fvAt=r=>{let s=0;for(let t=1;t<=n;t++)s+=cf[t-1]*Math.pow(1+r,n-t+1);return s;};let lo=-0.5,hi=1.0;for(let i=0;i<100;i++){const m=(lo+hi)/2;(fvAt(m)>corpus)?hi=m:lo=m;}return (lo+hi)/2;}
+
+let growthChart,scenChart,macroChart;
+function render(){
+  const cagrs=getCagrs();
+  document.getElementById("modeLabel").textContent=MODE==="flat"?"Flat contribution":("Step-up "+(stepR()*100)+"%/yr");
+  const Y=selYear(); document.getElementById("yrVal").textContent=Y;
+  const pct=r=>(r*100).toFixed(1)+"%";
+  const invY=portInvested(Y), mult=x=>(x/invY).toFixed(2)+"×";
+  const c=portTotals(Y,"c",cagrs),b=portTotals(Y,"b",cagrs),o=portTotals(Y,"o",cagrs);
+  const kpi=document.getElementById("kpiRow");kpi.innerHTML="";
+  [{lbl:`Total invested (${Y} yr)`,v:inrC(invY),cls:"",sub:"your own capital"},
+   {lbl:`Conservative (${Y} yr)`,v:inrC(c),cls:"cons",sub:`return: ${pct(effCAGR(c,Y))} · ${mult(c)}`},
+   {lbl:`Base (${Y} yr)`,v:inrC(b),cls:"base",sub:`return: ${pct(effCAGR(b,Y))} · ${mult(b)}`},
+   {lbl:`Optimistic (${Y} yr)`,v:inrC(o),cls:"opt",sub:`return: ${pct(effCAGR(o,Y))} · ${mult(o)}`}
+  ].forEach(x=>{kpi.innerHTML+=`<div class="kpi"><div class="lbl">${x.lbl}</div><div class="val ${x.cls}">${x.v}</div><div class="note" style="margin-top:4px">${x.sub}</div></div>`;});
+
+  const pb=document.querySelector("#portTable tbody");pb.innerHTML="";
+  HORIZONS.forEach(n=>{pb.innerHTML+=`<tr><td>${n} years</td><td>${inr(portInvested(n))}</td><td class="cons">${inr(portTotals(n,"c",cagrs))}</td><td class="base">${inr(portTotals(n,"b",cagrs))}</td><td class="opt">${inr(portTotals(n,"o",cagrs))}</td></tr>`;});
+
+  const ft=document.getElementById("fundTables");ft.innerHTML="";
+  FUNDS.forEach(f=>{let rows="";HORIZONS.forEach(n=>{rows+=`<tr><td>${n} years</td><td>${inr(invested(amt(),n))}</td><td class="cons">${inr(fv(amt(),cagrs[f.cat].c,n))}</td><td class="base">${inr(fv(amt(),cagrs[f.cat].b,n))}</td><td class="opt">${inr(fv(amt(),cagrs[f.cat].o,n))}</td></tr>`;});
+    ft.innerHTML+=`<div class="card"><h3 style="margin-top:0">${f.name}<span class="pill">${f.cat}</span><span class="pill">5-yr history ${f.hist}%</span></h3><table><thead><tr><th>Horizon</th><th>Invested</th><th class="cons">Conservative</th><th class="base">Base</th><th class="opt">Optimistic</th></tr></thead><tbody>${rows}</tbody></table></div>`;});
+
+  drawCharts(cagrs); renderMacro(cagrs);
+}
+function drawCharts(cagrs){
+  const yrs=[];for(let n=1;n<=selYear();n++)yrs.push(n);
+  const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#9fb0c0"}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+inrC(c.parsed.y)}}},scales:{x:{ticks:{color:"#9fb0c0"},grid:{color:"#2b3a49"},title:{display:true,text:"Year",color:"#9fb0c0"}},y:{ticks:{color:"#9fb0c0",callback:v=>inrC(v)},grid:{color:"#2b3a49"}}}};
+  if(growthChart)growthChart.destroy();
+  growthChart=new Chart(document.getElementById("growthChart"),{type:"line",data:{labels:yrs,datasets:[
+    {label:"Optimistic",data:yrs.map(n=>portTotals(n,"o",cagrs)),borderColor:"#4caf82",borderDash:[5,4],backgroundColor:"transparent",tension:.15,pointRadius:0},
+    {label:"Base",data:yrs.map(n=>portTotals(n,"b",cagrs)),borderColor:"#3ea6ff",backgroundColor:"rgba(62,166,255,.12)",fill:true,tension:.15,pointRadius:0},
+    {label:"Conservative",data:yrs.map(n=>portTotals(n,"c",cagrs)),borderColor:"#e06c75",borderDash:[5,4],backgroundColor:"transparent",tension:.15,pointRadius:0},
+    {label:"Invested",data:yrs.map(n=>portInvested(n)),borderColor:"#9fb0c0",borderDash:[2,3],backgroundColor:"transparent",tension:0,pointRadius:0}]},options:opts});
+  if(scenChart)scenChart.destroy();
+  scenChart=new Chart(document.getElementById("scenChart"),{type:"bar",data:{labels:HORIZONS.map(n=>n+" yr"),datasets:[
+    {label:"Conservative",data:HORIZONS.map(n=>portTotals(n,"c",cagrs)),backgroundColor:"#e06c75"},
+    {label:"Base",data:HORIZONS.map(n=>portTotals(n,"b",cagrs)),backgroundColor:"#3ea6ff"},
+    {label:"Optimistic",data:HORIZONS.map(n=>portTotals(n,"o",cagrs)),backgroundColor:"#4caf82"}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#9fb0c0"}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+inrC(c.parsed.y)}}},scales:{x:{ticks:{color:"#9fb0c0"},grid:{color:"#2b3a49"}},y:{ticks:{color:"#9fb0c0",callback:v=>inrC(v)},grid:{color:"#2b3a49"}}}}});
+}
+function renderMacro(cagrs){
+  const Y=selYear(),pct=r=>(r*100).toFixed(1)+"%";
+  const mb=portTotals(Y,"b",cagrs),c=macroTotals(Y,"c"),b=macroTotals(Y,"b"),o=macroTotals(Y,"o"),drag=b-mb;
+  const k=document.getElementById("macroKpi");k.innerHTML="";
+  [{lbl:`Macro conservative (${Y} yr)`,v:inrC(c),cls:"cons",sub:`return ${pct(effCAGR(c,Y))}`},
+   {lbl:`Macro base (${Y} yr)`,v:inrC(b),cls:"base",sub:`return ${pct(effCAGR(b,Y))}`},
+   {lbl:`Macro optimistic (${Y} yr)`,v:inrC(o),cls:"opt",sub:`return ${pct(effCAGR(o,Y))}`},
+   {lbl:`Macro base vs model base`,v:(drag>=0?"+":"−")+inrC(Math.abs(drag)).slice(1),cls:drag>=0?"opt":"cons",sub:"valuation haircut"}
+  ].forEach(x=>{k.innerHTML+=`<div class="kpi"><div class="lbl">${x.lbl}</div><div class="val ${x.cls}">${x.v}</div><div class="note" style="margin-top:4px">${x.sub}</div></div>`;});
+  const tb=document.querySelector("#macroTable tbody");tb.innerHTML="";
+  HORIZONS.forEach(n=>{tb.innerHTML+=`<tr><td>${n} yr</td><td class="base">${inr(portTotals(n,"b",cagrs))}</td><td class="cons">${inr(macroTotals(n,"c"))}</td><td class="base">${inr(macroTotals(n,"b"))}</td><td class="opt">${inr(macroTotals(n,"o"))}</td></tr>`;});
+  const yrs=[];for(let n=1;n<=Y;n++)yrs.push(n);
+  if(macroChart)macroChart.destroy();
+  macroChart=new Chart(document.getElementById("macroChart"),{type:"line",data:{labels:yrs,datasets:[
+    {label:"Model base",data:yrs.map(n=>portTotals(n,"b",cagrs)),borderColor:"#3ea6ff",borderDash:[5,4],backgroundColor:"transparent",tension:.15,pointRadius:0},
+    {label:"Macro optimistic",data:yrs.map(n=>macroTotals(n,"o")),borderColor:"#4caf82",backgroundColor:"transparent",tension:.15,pointRadius:0},
+    {label:"Macro base",data:yrs.map(n=>macroTotals(n,"b")),borderColor:"#f5b301",backgroundColor:"rgba(245,179,1,.12)",fill:true,tension:.15,pointRadius:0},
+    {label:"Macro conservative",data:yrs.map(n=>macroTotals(n,"c")),borderColor:"#e06c75",backgroundColor:"transparent",tension:.15,pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#9fb0c0"}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+inrC(c.parsed.y)}}},scales:{x:{ticks:{color:"#9fb0c0"},grid:{color:"#2b3a49"},title:{display:true,text:"Year",color:"#9fb0c0"}},y:{ticks:{color:"#9fb0c0",callback:v=>inrC(v)},grid:{color:"#2b3a49"}}}}});
+}
+/* OPTIONAL: to add a "current vs proposed" or "keep vs replace" comparison,
+   define a helper like proposed(n,key,cagrs)=portTotals(...) - fv(oldCat) + fv(newCat),
+   add a section + canvas, and call it from render(). See the skill's examples. */
+document.querySelectorAll("#modeSeg button").forEach(bn=>bn.addEventListener("click",()=>{document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.remove("on"));bn.classList.add("on");MODE=bn.dataset.mode;render();}));
+document.querySelectorAll("input").forEach(el=>el.addEventListener("input",render));
+render();
+</script>
+</body>
+</html>
